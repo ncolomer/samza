@@ -19,9 +19,8 @@ package org.apache.samza.utils;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
@@ -56,7 +55,7 @@ public class TestUtils {
         List<PartitionInfo> parts = new ArrayList<PartitionInfo>();
         for (int i = 0; i < partitions; i++)
             parts.add(new PartitionInfo(topic, i, ns[i % ns.length], ns, ns));
-        return new Cluster(asList(ns), parts);
+        return new Cluster(asList(ns), parts, new HashSet<String>());
     }
 
     /**

@@ -19,15 +19,15 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.util.{Logging, KafkaUtil, ExponentialSleepStrategy, ClientUtilTopicMetadataStore}
-import org.apache.samza.config.Config
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.config.KafkaConfig.Config2Kafka
-import org.apache.kafka.clients.producer.KafkaProducer
-import org.apache.samza.system.SystemFactory
-import org.apache.samza.config.StorageConfig._
+import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
-import kafka.utils.ZKStringSerializer
+import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.samza.config.Config
+import org.apache.samza.config.KafkaConfig.Config2Kafka
+import org.apache.samza.config.StorageConfig._
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
 
 object KafkaSystemFactory extends Logging {
   def getInjectedProducerProperties(systemName: String, config: Config) = if (config.isChangelogSystem(systemName)) {
@@ -115,7 +115,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
       timeout,
       bufferSize,
       clientId,
-      () => new ZkClient(consumerConfig.zkConnect, 6000, 6000, ZKStringSerializer),
+      () => ZkUtils.createZkClient(consumerConfig.zkConnect, 6000, 6000),
       topicMetaInformation)
   }
 }

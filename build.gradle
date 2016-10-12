@@ -166,6 +166,7 @@ project(":samza-kafka_$scalaVersion") {
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
     compile "org.apache.kafka:kafka-clients:$kafkaVersion"
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
+    testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-all:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
@@ -179,8 +180,8 @@ project(":samza-kafka_$scalaVersion") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
-    // There appear to be issues between TestKafkaSystemAdmin and 
-    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the 
+    // There appear to be issues between TestKafkaSystemAdmin and
+    // TestKafkaCheckpointManager both running brokeres and ZK. Restarting the
     // gradle worker after every test clears things up. These tests should be
     // moved to the integration test suite.
     forkEvery = 1
@@ -382,6 +383,7 @@ project(":samza-test_$scalaVersion") {
     compile "junit:junit:$junitVersion"
     compile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion"
     testCompile "org.apache.kafka:kafka_$scalaVersion:$kafkaVersion:test"
+    testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"
     testCompile "com.101tec:zkclient:$zkClientVersion"
     testCompile project(":samza-kafka_$scalaVersion")
     testCompile "org.scalatest:scalatest_$scalaVersion:$scalaTestVersion"
