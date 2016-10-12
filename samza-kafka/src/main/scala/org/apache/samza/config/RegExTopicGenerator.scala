@@ -19,17 +19,16 @@
 
 package org.apache.samza.config
 
+import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
-import kafka.utils.{ ZkUtils, ZKStringSerializer }
-import org.apache.samza.config.KafkaConfig.{ Config2Kafka, REGEX_RESOLVED_STREAMS }
 import org.apache.samza.SamzaException
-import collection.JavaConversions._
-import org.apache.samza.util.Logging
-import scala.collection._
+import org.apache.samza.config.KafkaConfig.{Config2Kafka, REGEX_RESOLVED_STREAMS}
 import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.system.SystemStream
-import org.apache.samza.util.Util
-import scala.util.Sorting
+import org.apache.samza.util.{Logging, Util}
+
+import scala.collection.JavaConversions._
+import scala.collection._
 
 /**
  * Dynamically determine the Kafka topics to use as input streams to the task via a regular expression.
@@ -102,10 +101,10 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
     val consumerConfig = config.getKafkaSystemConsumerConfig(systemName)
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("No zookeeper.connect for system %s defined in config." format systemName))
-    val zkClient = new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+    val zkClient = ZkUtils.createZkClient(zkConnect, 6000, 6000)
 
     try {
-      ZkUtils.getAllTopics(zkClient)
+      ZkUtils(zkClient, isZkSecurityEnabled = false).getAllTopics()
     } finally {
       zkClient.close()
     }

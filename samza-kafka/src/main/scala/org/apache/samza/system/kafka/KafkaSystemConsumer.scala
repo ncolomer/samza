@@ -19,26 +19,19 @@
 
 package org.apache.samza.system.kafka
 
-import kafka.common.TopicAndPartition
-import org.apache.samza.util.Logging
-import kafka.message.MessageAndOffset
-import org.apache.samza.Partition
-import kafka.utils.Utils
-import org.apache.samza.util.Clock
 import java.util.UUID
-import kafka.serializer.DefaultDecoder
-import kafka.serializer.Decoder
-import org.apache.samza.util.BlockingEnvelopeMap
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.system.IncomingMessageEnvelope
-import kafka.consumer.ConsumerConfig
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.SamzaException
-import org.apache.samza.util.TopicMetadataStore
-import org.apache.samza.util.ExponentialSleepStrategy
-import kafka.api.TopicMetadata
-import org.apache.samza.util.ExponentialSleepStrategy
 import java.util.concurrent.ConcurrentHashMap
+
+import kafka.api.TopicMetadata
+import kafka.common.TopicAndPartition
+import kafka.consumer.ConsumerConfig
+import kafka.message.MessageAndOffset
+import kafka.serializer.{Decoder, DefaultDecoder}
+import org.apache.kafka.common.utils.Utils
+import org.apache.samza.Partition
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.util.{BlockingEnvelopeMap, Clock, ExponentialSleepStrategy, Logging, TopicMetadataStore}
+
 import scala.collection.JavaConversions._
 
 object KafkaSystemConsumer {

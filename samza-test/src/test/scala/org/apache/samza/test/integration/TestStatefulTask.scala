@@ -20,109 +20,89 @@
 package org.apache.samza.test.integration
 
 import java.util.Properties
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import kafka.admin.AdminUtils
-import kafka.consumer.Consumer
-import kafka.consumer.ConsumerConfig
+import kafka.consumer.{Consumer, ConsumerConfig}
+import kafka.integration.KafkaServerTestHarness
 import kafka.message.MessageAndMetadata
 import kafka.server.KafkaConfig
-import kafka.server.KafkaServer
-import kafka.utils.TestUtils
-import kafka.utils.TestZKUtils
-import kafka.utils.Utils
-import kafka.utils.ZKStringSerializer
-import kafka.zk.EmbeddedZookeeper
-import org.I0Itec.zkclient.ZkClient
+import kafka.utils.{ZkUtils, TestUtils}
+import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.config.Config
-import org.apache.samza.job.local.ThreadJobFactory
-import org.apache.samza.config.MapConfig
+import org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory
+import org.apache.samza.config.{Config, KafkaProducerConfig, MapConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.ApplicationStatus
-import org.apache.samza.job.StreamJob
+import org.apache.samza.job.local.ThreadJobFactory
+import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.kafka.TopicMetadataCache
-import org.apache.samza.system.{SystemStreamPartition, IncomingMessageEnvelope}
-import org.apache.samza.config.KafkaProducerConfig
-import org.apache.samza.task.InitableTask
-import org.apache.samza.task.MessageCollector
-import org.apache.samza.task.StreamTask
-import org.apache.samza.task.TaskContext
-import org.apache.samza.task.TaskCoordinator
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task.TaskCoordinator.RequestScope
-import org.apache.samza.util.ClientUtilTopicMetadataStore
-import org.apache.samza.util.TopicMetadataStore
+import org.apache.samza.task.{InitableTask, MessageCollector, StreamTask, TaskContext, TaskCoordinator}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
 import org.junit.Assert._
-import org.junit.{BeforeClass, AfterClass, Test}
+import org.junit.{Before, Test}
+
 import scala.collection.JavaConversions._
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.SynchronizedMap
-import org.apache.kafka.clients.producer.{ProducerConfig, Producer, ProducerRecord, KafkaProducer}
-import java.util
-import org.apache.samza.util.KafkaUtil
+import scala.collection.mutable.{ArrayBuffer, HashMap, SynchronizedMap}
 
 object TestStatefulTask {
+
   val INPUT_TOPIC = "input"
   val STORE_NAME = "mystore"
   val STATE_TOPIC_STREAM = "mystoreChangelog"
   val TOTAL_TASK_NAMES = 1
   val REPLICATION_FACTOR = 3
 
-  val zkConnect: String = TestZKUtils.zookeeperConnect
-  var zkClient: ZkClient = null
-  val zkConnectionTimeout = 6000
-  val zkSessionTimeout = 6000
-
-  val brokerId1 = 0
-  val brokerId2 = 1
-  val brokerId3 = 2
-  val ports = TestUtils.choosePorts(3)
-  val (port1, port2, port3) = (ports(0), ports(1), ports(2))
-
-  val props1 = TestUtils.createBrokerConfig(brokerId1, port1)
-  val props2 = TestUtils.createBrokerConfig(brokerId2, port2)
-  val props3 = TestUtils.createBrokerConfig(brokerId3, port3)
-  props1.setProperty("auto.create.topics.enable","false")
-  props2.setProperty("auto.create.topics.enable","false")
-  props3.setProperty("auto.create.topics.enable","false")
-
-  val config = new util.HashMap[String, Object]()
-  val brokers = "localhost:%d,localhost:%d,localhost:%d" format (port1, port2, port3)
-  config.put("bootstrap.servers", brokers)
-  config.put("request.required.acks", "-1")
-  config.put("serializer.class", "kafka.serializer.StringEncoder")
-  config.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, new Integer(1))
-  config.put(ProducerConfig.RETRIES_CONFIG, new Integer(Integer.MAX_VALUE-1))
-  val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
-  var producer: Producer[Array[Byte], Array[Byte]] = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123"))
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345"))
-  var zookeeper: EmbeddedZookeeper = null
-  var server1: KafkaServer = null
-  var server2: KafkaServer = null
-  var server3: KafkaServer = null
+
+}
+
+/**
+ * Test that does the following:
+ *
+ * 1. Starts ZK, and 3 kafka brokers.
+ * 2. Create two topics: input and mystore.
+ * 3. Validate that the topics were created successfully and have leaders.
+ * 4. Start a single partition of TestTask using ThreadJobFactory.
+ * 5. Send four messages to input (1,2,3,2), which contain one dupe (2).
+ * 6. Validate that all messages were received by TestTask.
+ * 7. Validate that TestTask called store.put() for all four messages, and that the messages ended up in the mystore topic.
+ * 8. Kill the job.
+ * 9. Start the job again.
+ * 10. Validate that the job restored all messages (1,2,3) to the store.
+ * 11. Send three more messages to input (4,5,5), and validate that TestTask receives them.
+ * 12. Kill the job again.
+ */
+class TestStatefulTask extends KafkaServerTestHarness {
+  import TestStatefulTask._
+
+  val jobFactory = new ThreadJobFactory
+
   var metadataStore: TopicMetadataStore = null
+  var producer: Producer[Array[Byte], Array[Byte]] = null
 
-  @BeforeClass
-  def beforeSetupServers {
-    zookeeper = new EmbeddedZookeeper(zkConnect)
-    server1 = TestUtils.createServer(new KafkaConfig(props1))
-    server2 = TestUtils.createServer(new KafkaConfig(props2))
-    server3 = TestUtils.createServer(new KafkaConfig(props3))
-    zkClient = new ZkClient(zkConnect + "/", 6000, 6000, ZKStringSerializer)
-    producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
+  override def generateConfigs(): scala.Seq[KafkaConfig] = TestUtils
+    .createBrokerConfigs(3, zkConnect, enableControlledShutdown = true)
+    .map(KafkaConfig.fromProps)
 
-    createTopics
-    validateTopics
+  def producerConfig = {
+    val config = Map[String, AnyRef](
+      ProducerConfig.BOOTSTRAP_SERVERS_CONFIG -> brokerList,
+      "request.required.acks" -> "-1",
+      "serializer.class" -> "kafka.serializer.StringEncoder",
+      ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION -> new Integer(1),
+      ProducerConfig.RETRIES_CONFIG -> new Integer(Integer.MAX_VALUE - 1)
+    ) ++ KafkaCheckpointManagerFactory.INJECTED_PRODUCER_PROPERTIES
+    new KafkaProducerConfig("kafka", "i001", config)
   }
 
   def createTopics {
     AdminUtils.createTopic(
-      zkClient,
+      ZkUtils(zkConnect, 6000, 6000, isZkSecurityEnabled = false),
       INPUT_TOPIC,
       TOTAL_TASK_NAMES,
       REPLICATION_FACTOR)
@@ -158,44 +138,16 @@ object TestStatefulTask {
     }
   }
 
-  @AfterClass
-  def afterCleanLogDirs {
-    producer.close()
-    server1.shutdown
-    server1.awaitShutdown()
-    server2.shutdown
-    server2.awaitShutdown()
-    server3.shutdown
-    server3.awaitShutdown()
-    Utils.rm(server1.config.logDirs)
-    Utils.rm(server2.config.logDirs)
-    Utils.rm(server3.config.logDirs)
-    zkClient.close
-    zookeeper.shutdown
+  @Before
+  override def setUp() = {
+    super.setUp()
+    metadataStore = new ClientUtilTopicMetadataStore(brokerList, "some-job-name")
+    producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
+    createTopics
+    validateTopics
   }
-}
 
-/**
- * Test that does the following:
- *
- * 1. Starts ZK, and 3 kafka brokers.
- * 2. Create two topics: input and mystore.
- * 3. Validate that the topics were created successfully and have leaders.
- * 4. Start a single partition of TestTask using ThreadJobFactory.
- * 5. Send four messages to input (1,2,3,2), which contain one dupe (2).
- * 6. Validate that all messages were received by TestTask.
- * 7. Validate that TestTask called store.put() for all four messages, and that the messages ended up in the mystore topic.
- * 8. Kill the job.
- * 9. Start the job again.
- * 10. Validate that the job restored all messages (1,2,3) to the store.
- * 11. Send three more messages to input (4,5,5), and validate that TestTask receives them.
- * 12. Kill the job again.
- */
-class TestStatefulTask {
-  import TestStatefulTask._
-  val jobFactory = new ThreadJobFactory
-
-  val jobConfig = Map(
+  def jobConfig = Map(
     "job.factory.class" -> jobFactory.getClass.getCanonicalName,
     "job.name" -> "hello-stateful-world",
     "task.class" -> "org.apache.samza.test.integration.TestTask",
@@ -214,7 +166,7 @@ class TestStatefulTask {
     "systems.kafka.consumer.auto.offset.reset" -> "smallest", // applies to an empty topic
     "systems.kafka.samza.msg.serde" -> "string",
     "systems.kafka.consumer.zookeeper.connect" -> zkConnect,
-    "systems.kafka.producer.bootstrap.servers" -> ("localhost:%s" format port1),
+    "systems.kafka.producer.bootstrap.servers" -> brokerList,
     // Since using state, need a checkpoint manager
     "task.checkpoint.factory" -> "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory",
     "task.checkpoint.system" -> "kafka",

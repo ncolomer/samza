@@ -21,7 +21,7 @@ title: Spark Streaming
 
 *People generally want to know how similar systems compare. We've done our best to fairly contrast the feature sets of Samza with other systems. But we aren't experts in these frameworks, and we are, of course, totally biased. If we have goofed anything, please let us know and we will correct it.*
 
-*This overview is comparing Spark Streaming 1.3.1 and Samza 0.9.0. Things may change in the future versions.*
+*This overview is comparing Spark Streaming 1.3.1 and Samza 0.9.2-rc1. Things may change in the future versions.*
 
 [Spark Streaming](http://spark.apache.org/docs/latest/streaming-programming-guide.html) is a stream processing system that uses the core [Apache Spark](http://spark.apache.org/) API. Both Samza and Spark Streaming provide data consistency, fault tolerance, a programming API, etc. Spark's approach to streaming is different from Samza's. Samza processes messages as they are received, while Spark Streaming treats streaming as a series of deterministic batch operations. Spark Streaming groups the stream into batches of a fixed duration (such as 1 second). Each batch is represented as a Resilient Distributed Dataset ([RDD](http://www.cs.berkeley.edu/~matei/papers/2012/nsdi_spark.pdf)). A neverending sequence of these RDDs is called a Discretized Stream ([DStream](http://www.cs.berkeley.edu/~matei/papers/2012/hotcloud_spark_streaming.pdf)).
 
@@ -114,6 +114,6 @@ Although a Storm/Spark Streaming job could in principle write its output to a me
 
 Spark has an active user and developer community, and recently releases 1.3.1 version. It has a list of companies that use it on its [Powered by](https://cwiki.apache.org/confluence/display/SPARK/Powered+By+Spark) page. Since Spark contains Spark Streaming, Spark SQL, MLlib, GraphX and Bagel, it's tough to tell what portion of companies on the list are actually using Spark Streaming, and not just Spark.
 
-Samza is still young, but has just released version 0.9.0. It has a responsive community and is being developed actively. That said, it is built on solid systems such as YARN and Kafka. Samza is heavily used at LinkedIn and [other companies](https://cwiki.apache.org/confluence/display/SAMZA/Powered+By). we hope others will find it useful as well.
+Samza is still young, but has just released version 0.9.2-rc1. It has a responsive community and is being developed actively. That said, it is built on solid systems such as YARN and Kafka. Samza is heavily used at LinkedIn and [other companies](https://cwiki.apache.org/confluence/display/SAMZA/Powered+By). we hope others will find it useful as well.
 
 ## [API Overview &raquo;](../api/overview.html)

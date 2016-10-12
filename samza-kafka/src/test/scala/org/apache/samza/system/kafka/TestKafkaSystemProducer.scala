@@ -19,15 +19,14 @@
 
 package org.apache.samza.system.kafka
 
-import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
-import org.junit.Test
-
 import org.apache.kafka.clients.producer._
-import java.util
-import org.junit.Assert._
-import org.scalatest.Assertions.intercept
 import org.apache.kafka.common.errors.RecordTooLargeException
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
+import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStream}
+import org.junit.Assert._
+import org.junit.Test
+import org.scalatest.Assertions.intercept
 
 
 class TestKafkaSystemProducer {
@@ -37,12 +36,12 @@ class TestKafkaSystemProducer {
   @Test
   def testKafkaProducer {
     val systemProducer = new KafkaSystemProducer(systemName = "test",
-                                           getProducer = () => { new MockProducer(true) },
+                                           getProducer = () => { new MockProducer(true, new ByteArraySerializer, new ByteArraySerializer) },
                                            metrics = new KafkaSystemProducerMetrics)
     systemProducer.register("test")
     systemProducer.start
     systemProducer.send("test", someMessage)
-    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer].history().size())
+    assertEquals(1, systemProducer.producer.asInstanceOf[MockProducer[Array[Byte], Array[Byte]]].history().size())
     systemProducer.stop
   }
 

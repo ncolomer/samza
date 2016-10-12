@@ -19,32 +19,27 @@
 
 package org.apache.samza.checkpoint.kafka
 
-import org.apache.samza.util.Logging
 import java.nio.ByteBuffer
 import java.util
+import java.util.Properties
+
 import kafka.admin.AdminUtils
 import kafka.api._
-import kafka.common.ErrorMapping
-import kafka.common.InvalidMessageSizeException
-import kafka.common.TopicAndPartition
-import kafka.common.TopicExistsException
-import kafka.common.UnknownTopicOrPartitionException
+import kafka.common.{ErrorMapping, InvalidMessageSizeException, TopicAndPartition, TopicExistsException, UnknownTopicOrPartitionException}
 import kafka.consumer.SimpleConsumer
 import kafka.message.InvalidMessageException
-import kafka.utils.Utils
+import kafka.utils.ZkUtils
 import org.I0Itec.zkclient.ZkClient
+import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
+import org.apache.kafka.common.utils.Utils
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.checkpoint.CheckpointManager
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system.kafka.TopicMetadataCache
-import org.apache.samza.util.ExponentialSleepStrategy
-import org.apache.samza.util.TopicMetadataStore
+import org.apache.samza.util.{ExponentialSleepStrategy, KafkaUtil, Logging, TopicMetadataStore}
+
 import scala.collection.mutable
-import java.util.Properties
-import org.apache.kafka.clients.producer.{Producer, ProducerRecord}
-import org.apache.samza.util.KafkaUtil
 
 /**
  * Kafka checkpoint manager is used to store checkpoints in a Kafka topic.
@@ -354,7 +349,7 @@ class KafkaCheckpointManager(
         val zkClient = connectZk()
         try {
           AdminUtils.createTopic(
-            zkClient,
+            ZkUtils(zkClient, isZkSecurityEnabled = false),
             checkpointTopic,
             1,
             replicationFactor,

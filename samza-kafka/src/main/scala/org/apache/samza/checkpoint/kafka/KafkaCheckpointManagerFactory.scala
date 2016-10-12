@@ -20,7 +20,7 @@
 package org.apache.samza.checkpoint.kafka
 
 import org.apache.samza.util.Logging
-import kafka.utils.ZKStringSerializer
+import kafka.utils.{ZkUtils, ZKStringSerializer}
 import org.I0Itec.zkclient.ZkClient
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointManager
@@ -85,7 +85,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
     val zkConnect = Option(consumerConfig.zkConnect)
       .getOrElse(throw new SamzaException("no zookeeper.connect defined in config"))
     val connectZk = () => {
-      new ZkClient(zkConnect, 6000, 6000, ZKStringSerializer)
+      ZkUtils.createZkClient(zkConnect, 6000, 6000)
     }
     val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
     val jobId = config.getJobId.getOrElse("1")

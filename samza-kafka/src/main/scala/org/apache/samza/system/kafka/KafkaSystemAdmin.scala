@@ -19,22 +19,20 @@
 
 package org.apache.samza.system.kafka
 
-import org.I0Itec.zkclient.ZkClient
-import org.apache.samza.Partition
-import org.apache.samza.SamzaException
-import org.apache.samza.system.SystemAdmin
-import org.apache.samza.system.SystemStreamMetadata
-import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, Logging}
-import kafka.api._
-import kafka.consumer.SimpleConsumer
-import kafka.common.{TopicExistsException, TopicAndPartition}
 import java.util.{Properties, UUID}
-import scala.collection.JavaConversions._
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import kafka.consumer.ConsumerConfig
+
 import kafka.admin.AdminUtils
-import org.apache.samza.util.KafkaUtil
+import kafka.api._
+import kafka.common.{TopicAndPartition, TopicExistsException}
+import kafka.consumer.{ConsumerConfig, SimpleConsumer}
+import kafka.utils.ZkUtils
+import org.I0Itec.zkclient.ZkClient
+import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
+import org.apache.samza.system.{SystemAdmin, SystemStreamMetadata, SystemStreamPartition}
+import org.apache.samza.util.{ClientUtilTopicMetadataStore, ExponentialSleepStrategy, KafkaUtil, Logging}
+
+import scala.collection.JavaConversions._
 
 object KafkaSystemAdmin extends Logging {
   /**
@@ -71,6 +69,7 @@ object KafkaSystemAdmin extends Logging {
 
 /**
  * A helper class that is used to construct the changelog stream specific information
+ *
  * @param replicationFactor The number of replicas for the changelog stream
  * @param kafkaProps The kafka specific properties that need to be used for changelog stream creation
  */
@@ -286,7 +285,7 @@ class KafkaSystemAdmin(
         val zkClient = connectZk()
         try {
           AdminUtils.createTopic(
-            zkClient,
+            ZkUtils(zkClient, isZkSecurityEnabled = false),
             topicName,
             numKafkaChangelogPartitions,
             topicMetaInfo.replicationFactor,

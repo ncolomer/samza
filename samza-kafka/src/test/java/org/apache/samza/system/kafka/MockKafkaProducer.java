@@ -113,7 +113,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   private RecordMetadata getRecordMetadata(ProducerRecord record) {
-    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get());
+    return new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, this.msgsSent.get(), -1, -1, -1, -1);
   }
 
   @Override
@@ -159,6 +159,8 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     }
   }
 
+  @Override public void flush() {}
+
   @Override
   public List<PartitionInfo> partitionsFor(String topic) {
     return this._cluster.partitionsForTopic(topic);
@@ -170,9 +172,9 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   @Override
-  public void close() {
+  public void close() {}
 
-  }
+  @Override public void close(long timeout, TimeUnit unit) {}
 
   private static class FutureFailure implements Future<RecordMetadata> {
 
@@ -215,7 +217,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
     public FutureSuccess(ProducerRecord record, int offset) {
       this.record = record;
-      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset);
+      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, -1, -1, -1, -1);
     }
 
     @Override
